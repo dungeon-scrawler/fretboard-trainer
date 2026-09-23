@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fretboard Trainer</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --border: #334155;
+            --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-mono);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .screen {
+            display: none;
+            width: 100%;
+            max-width: 480px;
+            background-color: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Configuration Screen Styles */
+        h1 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .section-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .duration-btn {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 12px 0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .duration-btn:hover {
+            border-color: var(--accent);
+            color: var(--text-main);
+        }
+
+        .duration-btn.selected {
+            background-color: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .strings {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+
+        .notes {
+            display: grid;
+            grid-template-columns: repeat(4, max-content);
+            justify-content: space-between;
+            column-gap: 32px;
+            row-gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .notes label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .check {
+            display: flex;
+            justify-content: space-evenly;
+            align-items: center;
+            width: 100%;
+        }
+
+        .slider-container {
+            margin-bottom: 32px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .slider-value {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-color);
+            border-radius: 3px;
+            outline: none;
+            appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        input[type="checkbox"] {
+            appearance: none;
+            height: 18px;
+            width: 18px;
+            background-color: var(--bg-color);
+            border-radius: 6px;
+            border: solid 1px white;
+        }
+
+        input[type="checkbox"]:checked {
+            background-color: var(--accent);
+        }
+
+        .submit-btn {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .submit-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        /* Exercise Screen Styles */
+        #exercise-screen {
+            max-width: 640px;
+            height: 420px;
+            position: relative;
+            padding: 40px;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .top-right-timer {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            color: var(--text-muted);
+            background: var(--bg-color);
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        /* 2/3 (Note Area) to 1/3 (Number Area) Grid Ratio */
+        .note-display-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            align-items: baseline;
+            width: 100%;
+            margin: auto 0;
+        }
+
+        .note-wrapper {
+            text-align: right;
+            padding-right: 16px;
+            font-size: clamp(5.6rem, 15vw, 9.6rem);
+            font-weight: 700;
+            color: var(--text-main);
+            line-height: 1;
+        }
+
+        .number-wrapper {
+            text-align: left;
+            font-size: clamp(2.8rem, 7.6vw, 4.8rem);
+            font-weight: 600;
+            color: var(--accent);
+            line-height: 1;
+        }
+
+        /* Depleting Progress Bar */
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background-color: var(--bg-color);
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .progress-bar-fill {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #60a5fa);
+            transform-origin: left;
+            transform: scaleX(1);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Setup Screen -->
+    <div id="setup-screen" class="screen active">
+        <h1>Fretboard Training</h1>
+
+        <div class="section-label">Duration</div>
+        <div class="button-group">
+            <button class="duration-btn" data-time="30">30s</button>
+            <button class="duration-btn selected" data-time="60">60s</button>
+            <button class="duration-btn" data-time="120">120s</button>
+        </div>
+        <div class="section-label">Notes</div>
+        <div id="notes" class="notes">
+            <label><input id="0" type="checkbox" checked>A</label>
+            <label><input id="1" type="checkbox">A#/Bb</label>
+            <label><input id="2" type="checkbox" checked>B</span></label>
+            <label><input id="3" type="checkbox" checked>C</span></label>
+            <label><input id="4" type="checkbox">C#/Db</span></label>
+            <label><input id="5" type="checkbox" checked>D</span></label>
+            <label><input id="6" type="checkbox">D#/Eb</span></label>
+            <label><input id="7" type="checkbox" checked>E</span></label>
+            <label><input id="8" type="checkbox" checked>F</span></label>
+            <label><input id="9" type="checkbox">F#/Gb</span></label>
+            <label><input id="10" type="checkbox" checked>G</span></label>
+            <label><input id="11" type="checkbox">A#/Bb</span></label>
+        </div>
+        <div class="section-label">Strings</div>
+        <div id="strings" class="strings">
+            <span class="check"><input id="6" type="checkbox" checked></input><span>6</span></span>
+            <span class="check"><input id="5" type="checkbox" checked></input><span>5</span></span>
+            <span class="check"><input id="4" type="checkbox"></input><span>4</span></span>
+            <span class="check"><input id="3" type="checkbox"></input><span>3</span></span>
+            <span class="check"><input id="2" type="checkbox"></input><span>2</span></span>
+            <span class="check"><input id="1" type="checkbox"></input><span>1</span></span>
+        </div>
+
+        <div class="slider-container">
+            <div class="slider-header">
+                <span class="section-label" style="margin-bottom:0;">Interval Pace</span>
+                <span class="slider-value"><span id="slider-val-display">3.0</span> seconds</span>
+            </div>
+            <input type="range" id="interval-slider" min="1" max="10" step="0.5" value="3">
+        </div>
+
+        <button id="start-btn" class="submit-btn">Start Exercise</button>
+    </div>
+
+    <!-- Exercise Screen -->
+    <div id="exercise-screen" class="screen">
+        <div id="timer-display" class="top-right-timer">00:00</div>
+
+        <div class="note-display-container">
+            <div id="note-el" class="note-wrapper">--</div>
+            <div id="num-el" class="number-wrapper">(1)</div>
+        </div>
+
+        <div class="progress-bar-container">
+            <div id="progress-fill" class="progress-bar-fill"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedDuration = 60;
+        let selectedInterval = 3;
+
+        let totalTimeRemaining = 0;
+        let mainTimerInterval = null;
+        let stepTimerInterval = null;
+
+        const chromaticBagSource = [
+            "A", "A#/Bb", "B", "C", "C#/Db", "D", "D#/Eb", "E", "F", "F#/Gb", "G", "G#/Ab"
+        ];
+        let referenceBag = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        let currentBag = [];
+        let currentStrings = [1, 2, 3, 4, 5, 6];
+
+        const setupScreen = document.getElementById('setup-screen');
+        const exerciseScreen = document.getElementById('exercise-screen');
+        const durationBtns = document.querySelectorAll('.duration-btn');
+        const intervalSlider = document.getElementById('interval-slider');
+        const sliderValDisplay = document.getElementById('slider-val-display');
+        const startBtn = document.getElementById('start-btn');
+        const strings = document.getElementById('strings');
+        const stringToggles = strings.getElementsByTagName('input');
+        const notes = document.getElementById('notes');
+        const noteToggles = notes.getElementsByTagName('input');
+
+        const timerDisplay = document.getElementById('timer-display');
+        const noteEl = document.getElementById('note-el');
+        const numEl = document.getElementById('num-el');
+        const progressFill = document.getElementById('progress-fill');
+
+        durationBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                durationBtns.forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                selectedDuration = parseInt(btn.getAttribute('data-time'));
+            });
+        });
+
+        for (const toggle of stringToggles) {
+            toggle.addEventListener('change', (event) => {
+                const str = parseInt(event.target.getAttribute('id'));
+                if (event.target.checked) {
+                    // add string
+                    currentStrings.push(str)
+                } else {
+                    // remove string
+                    currentStrings.splice(currentStrings.findIndex((val) => val == str), 1);
+                }
+            });
+        }
+
+        for (const toggle of noteToggles) {
+            toggle.addEventListener('change', (event) => {
+                const noteIdx = parseInt(event.target.getAttribute('id'));
+                if (event.target.checked) {
+                    // add note
+                    referenceBag.push(noteIdx);
+                } else {
+                    // remove note
+                    referenceBag.splice(referenceBag.indexOf(noteIdx), 1);
+                }
+            });
+        }
+
+        intervalSlider.addEventListener('input', (e) => {
+            selectedInterval = parseFloat(e.target.value).toFixed(1);
+            sliderValDisplay.textContent = selectedInterval;
+        });
+
+        function shuffleBag() {
+            for (let i = referenceBag.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [referenceBag[i], referenceBag[j]] = [referenceBag[j], referenceBag[i]];
+            }
+            return referenceBag.map(idx => chromaticBagSource[idx]);
+        }
+
+        function getNextNoteFromBag() {
+            if (currentBag.length === 0) {
+                currentBag = shuffleBag();
+            }
+            return currentBag.pop();
+        }
+
+        function getRandomString() {
+            const index = Math.floor(Math.random() * currentStrings.length);
+            return currentStrings[index];
+        }
+
+        startBtn.addEventListener('click', () => {
+            setupScreen.classList.remove('active');
+            exerciseScreen.classList.add('active');
+
+            totalTimeRemaining = selectedDuration;
+            currentBag = [];
+
+            updateTimerDisplay();
+            triggerNextStep();
+
+            mainTimerInterval = setInterval(() => {
+                totalTimeRemaining--;
+                updateTimerDisplay();
+
+                if (totalTimeRemaining <= 0) {
+                    endExercise();
+                }
+            }, 1000);
+        });
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(totalTimeRemaining / 60);
+            const secs = totalTimeRemaining % 60;
+            timerDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function triggerNextStep() {
+            if (totalTimeRemaining <= 0) return;
+
+            const note = getNextNoteFromBag();
+            const randNum = getRandomString();
+
+            noteEl.textContent = note;
+            numEl.textContent = `(${randNum})`;
+
+            progressFill.style.animation = 'none';
+            progressFill.offsetHeight;
+            progressFill.style.animation = `deplete ${selectedInterval}s linear forwards`;
+
+            if (stepTimerInterval) clearTimeout(stepTimerInterval);
+
+            stepTimerInterval = setTimeout(() => {
+                if (totalTimeRemaining > 0) {
+                    triggerNextStep();
+                }
+            }, selectedInterval * 1000);
+        }
+
+        function endExercise() {
+            clearInterval(mainTimerInterval);
+            clearTimeout(stepTimerInterval);
+            progressFill.style.animation = 'none';
+
+            exerciseScreen.classList.remove('active');
+            setupScreen.classList.add('active');
+        }
+    </script>
+    <style>
+        @keyframes deplete {
+            0% {
+                transform: scaleX(1);
+            }
+
+            100% {
+                transform: scaleX(0);
+            }
+        }
+    </style>
+</body>
+
+</html>
